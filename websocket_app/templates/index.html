@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Price Monitor</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .price-display {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+        .timestamp {
+            color: #666;
+            font-size: 14px;
+        }
+        .log-container {
+            height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+        }
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 5px;
+            border-bottom: 1px solid #eee;
+        }
+        .alert {
+            background-color: #ffdddd;
+            color: #d8000c;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        input, button {
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <h1>Real-Time Stock Price Monitor</h1>
+    
+    <div class="controls">
+        <input type="text" id="ticker-input" placeholder="Enter stock ticker (e.g., AAPL)" value="AAPL">
+        <button id="connect-btn">Connect</button>
+        <button id="disconnect-btn">Disconnect</button>
+    </div>
+    
+    <div class="container">
+        <div class="card">
+            <h2 id="ticker-display">Stock: --</h2>
+            <div class="price-display" id="price-display">--</div>
+            <div class="timestamp" id="timestamp-display">Last updated: --</div>
+            <div id="alert-container"></div>
+        </div>
+        
+        <div class="card">
+            <h2>Connection Log</h2>
+            <div class="log-container" id="log-container"></div>
+        </div>
+    </div>
+
+    <script>
+        let socket = null;
+        
+        // DOM elements
+        const tickerInput = document.getElementById('ticker-input');
+        const connectBtn = document.getElementById('connect-btn');
+        const disconnectBtn = document.getElementById('disconnect-btn');
+        const tickerDisplay = document.getElementById('ticker-display');
+        const priceDisplay = document.getElementById('price-display');
+        const timestampDisplay = document.getElementById('timestamp-display');
+        const alertContainer = document.getElementById('alert-container');
+        const logContainer = document.getElementById('log-container');
+        
+        // Add log entry
+        function addLog(message) {
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+        
+        // Connect to WebSocket
+        function connectWebSocket() {
+            const ticker = tickerInput.value.trim().toUpperCase();
+            
+            if (!ticker) {
+                addLog('Error: Please enter a valid ticker symbol');
+                return;
+            }
+            
+            // Close existing connection if any
+            if (socket && socket.readyState !== WebSocket.CLOSED) {
+                socket.close();
+            }
+            
+            // Create new WebSocket connection
+            const wsUrl = `ws://${window.location.host}/ws/stocks/${ticker}/`;
+            socket = new WebSocket(wsUrl);
+            
+            socket.onopen = function(e) {
+                addLog(`Connected to WebSocket for ${ticker}`);
+                tickerDisplay.textContent = `Stock: ${ticker}`;
+                alertContainer.innerHTML = '';
+            };
+            
+            socket.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                
+                // Handle regular price updates
+                if (data.price !== undefined) {
+                    priceDisplay.textContent = `$${data.price}`;
+                    timestampDisplay.textContent = `Last updated: ${data.timestamp}`;
+                    addLog(`Received price update: $${data.price}`);
+                }
+                
+                // Handle alerts
+                if (data.alert) {
+                    const alertElement = document.createElement('div');
+                    alertElement.className = 'alert';
+                    alertElement.textContent = data.alert;
+                    alertContainer.appendChild(alertElement);
+                    addLog(`ALERT: ${data.alert}`);
+                    
+                    // Remove alert after 5 seconds
+                    setTimeout(() => {
+                        alertContainer.removeChild(alertElement);
+                    }, 5000);
+                }
+                
+                // Handle connection message
+                if (data.message) {
+                    addLog(data.message);
+                }
+            };
+            
+            socket.onclose = function(event) {
+                addLog(`WebSocket connection closed: ${event.code}`);
+                tickerDisplay.textContent = 'Stock: --';
+                priceDisplay.textContent = '--';
+                timestampDisplay.textContent = 'Last updated: --';
+            };
+            
+            socket.onerror = function(error) {
+                addLog(`WebSocket error: ${error.message}`);
+            };
+        }
+        
+        // Disconnect from WebSocket
+        function disconnectWebSocket() {
+            if (socket) {
+                socket.close();
+                addLog('Disconnected from WebSocket');
+            }
+        }
+        
+        // Event listeners
+        connectBtn.addEventListener('click', connectWebSocket);
+        disconnectBtn.addEventListener('click', disconnectWebSocket);
+        
+        // Connect on Enter key in input field
+        tickerInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                connectWebSocket();
+            }
+        });
+    </script>
+</body>
+</html>

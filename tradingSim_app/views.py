@@ -1,7 +1,9 @@
 from rest_framework import generics
 from .models import Trade
 from .serializers import TradeSerializer
-
+import requests
+from django.http import JsonResponse
+from django.conf import settings
 # Handles GET (list all trades) and POST (create a trade)
 class TradeListCreateView(generics.ListCreateAPIView):
     queryset = Trade.objects.all()
@@ -31,3 +33,22 @@ class TradeListCreateView(generics.ListCreateAPIView):
 class TradeDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Trade.objects.all()
     serializer_class = TradeSerializer
+
+
+
+def fetch_trade_analysis(request):
+    """Django API to call AWS Lambda function"""
+    date = request.GET.get("date", None)
+    
+    if not date:
+        return JsonResponse({"error": "Date parameter is required"}, status=400)
+
+    lambda_url = settings.AWS_LAMBDA_API_URL
+    params = {"date": date}
+
+    try:
+        response = requests.get(lambda_url, params=params)
+        data = response.json()
+        return JsonResponse(data)
+    except requests.RequestException as e:
+        return JsonResponse({"error": str(e)}, status=500)

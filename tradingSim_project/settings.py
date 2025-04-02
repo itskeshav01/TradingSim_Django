@@ -131,6 +131,7 @@ USE_I18N = True
 
 USE_TZ = True
 
+AWS_LAMBDA_API_URL = "https://9rio214r4j.execute-api.ap-southeast-2.amazonaws.com/Tradingapp"
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/

@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Algorithmic Trading Simulation</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            border-radius: 5px;
+            padding: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-control {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .btn {
+            display: inline-block;
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .btn-download {
+            background-color: #2196F3;
+        }
+        .error {
+            color: red;
+            padding: 15px;
+            margin-bottom: 15px;
+            border: 1px solid #f5c6cb;
+            border-radius: 4px;
+            background-color: #f8d7da;
+        }
+        .success {
+            color: green;
+            padding: 15px;
+            margin-bottom: 15px;
+            border: 1px solid #c3e6cb;
+            border-radius: 4px;
+            background-color: #d4edda;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+        .profit {
+            color: green;
+        }
+        .loss {
+            color: red;
+        }
+        .summary {
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        .summary-item {
+            background-color: white;
+            border-radius: 5px;
+            padding: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            text-align: center;
+            flex: 1;
+            margin: 0 10px;
+            min-width: 200px;
+        }
+        .chart-container {
+            margin-top: 30px;
+            height: 400px;
+        }
+        .debug-section {
+            margin-top: 30px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .debug-info {
+            font-family: monospace;
+            white-space: pre-wrap;
+            background-color: #f1f1f1;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .collapsible {
+            background-color: #eee;
+            color: #444;
+            cursor: pointer;
+            padding: 18px;
+            width: 100%;
+            border: none;
+            text-align: left;
+            outline: none;
+            font-size: 15px;
+            margin-bottom: 5px;
+        }
+        .active, .collapsible:hover {
+            background-color: #ccc;
+        }
+        .content {
+            padding: 0 18px;
+            display: none;
+            overflow: hidden;
+            background-color: #f1f1f1;
+        }
+        @media (max-width: 768px) {
+            .summary-item {
+                margin-bottom: 10px;
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Algorithmic Trading Simulation</h1>
+            <p>Moving Average Crossover Strategy: Buy when 50-day MA crosses above 200-day MA, sell when it crosses below</p>
+        </div>
+        
+        {% if error_message %}
+        <div class="error">
+            <strong>Error:</strong> {{ error_message }}
+        </div>
+        {% endif %}
+        
+        {% if processing_complete %}
+        <div class="success">
+            <strong>Success:</strong> File processed successfully!
+        </div>
+        {% endif %}
+        
+        <div class="form-group">
+            <form method="POST" enctype="multipart/form-data">
+                {% csrf_token %}
+                <label for="csv_file">Upload historical stock price data (CSV):</label>
+                <input type="file" name="csv_file" id="csv_file" accept=".csv" required class="form-control">
+                <small>Required format: Date, Open, High, Low, Close, Volume</small>
+                <br><br>
+                <button type="submit" class="btn">Upload and Run Strategy</button>
+            </form>
+        </div>
+        
+        {% if trades %}
+            <div class="summary">
+                <div class="summary-item">
+                    <h3>Total Profit/Loss</h3>
+                    <h2 class="{% if total_profit > 0 %}profit{% else %}loss{% endif %}">
+                        ₹{{ total_profit }}
+                    </h2>
+                </div>
+                <div class="summary-item">
+                    <h3>Total Trades</h3>
+                    <h2>{{ total_trades }}</h2>
+                </div>
+                <div class="summary-item">
+                    <h3>Winning Trades</h3>
+                    <h2 class="profit">{{ winning_trades }}</h2>
+                </div>
+                <div class="summary-item">
+                    <h3>Losing Trades</h3>
+                    <h2 class="loss">{{ losing_trades }}</h2>
+                </div>
+            </div>
+            
+            <h2>Trades Executed</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Buy Date</th>
+                        <th>Buy Price</th>
+                        <th>Sell Date</th>
+                        <th>Sell Price</th>
+                        <th>Profit/Loss</th>
+                        <th>Return %</th>
+                        <th>50-day MA</th>
+                        <th>200-day MA</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for trade in trades %}
+                    <tr>
+                        <td>{{ trade.buy_date }}</td>
+                        <td>₹{{ trade.buy_price }}</td>
+                        <td>{{ trade.sell_date }}</td>
+                        <td>₹{{ trade.sell_price }}</td>
+                        <td class="{% if trade.profit > 0 %}profit{% else %}loss{% endif %}">
+                            ₹{{ trade.profit }}
+                        </td>
+                        <td class="{% if trade.profit_percentage > 0 %}profit{% else %}loss{% endif %}">
+                            {{ trade.profit_percentage }}%
+                        </td>
+                        <td>{{ trade.ma_50 }}</td>
+                        <td>{{ trade.ma_200 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            <form method="POST" action="{% url 'download_report' %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-download">Download Trading Report (CSV)</button>
+            </form>
+        {% endif %}
+        
+        <!-- Debug Information -->
+        {% if debug_info %}
+        <button type="button" class="collapsible">Debug Information (Click to expand)</button>
+        <div class="content debug-section">
+            <h3>Request Information</h3>
+            <div class="debug-info">
+                <p><strong>Request Method:</strong> {{ debug_info.request_method }}</p>
+                
+                {% if debug_info.file_present != None %}
+                <p><strong>File Present:</strong> {{ debug_info.file_present }}</p>
+                {% endif %}
+                
+                {% if file_info %}
+                <h4>File Information:</h4>
+                <p>Name: {{ file_info.name }}</p>
+                <p>Size: {{ file_info.size }} bytes</p>
+                <p>Content Type: {{ file_info.content_type }}</p>
+                {% endif %}
+                
+                {% if debug_info.temp_file_saved %}
+                <p><strong>Temporary File Path:</strong> {{ debug_info.temp_file_saved }}</p>
+                {% endif %}
+                
+                {% if debug_info.sample_content %}
+                <h4>Sample Content:</h4>
+                <pre>{% for line in debug_info.sample_content %}{{ line }}
+{% endfor %}</pre>
+                {% endif %}
+                
+                {% if debug_info.dataframe_loaded %}
+                <h4>DataFrame Information:</h4>
+                <p>Rows: {{ debug_info.row_count }}</p>
+                <p>Columns: {{ debug_info.columns|join:", " }}</p>
+                {% endif %}
+                
+                {% if debug_info.missing_columns %}
+                <p><strong>Missing Columns:</strong> {{ debug_info.missing_columns|join:", " }}</p>
+                {% endif %}
+                
+                {% if debug_info.date_conversion %}
+                <p><strong>Date Conversion:</strong> {{ debug_info.date_conversion }}</p>
+                {% endif %}
+                
+                {% if debug_info.ma_calculated %}
+                <p><strong>Moving Averages Calculated:</strong> {{ debug_info.ma_calculated }}</p>
+                <p><strong>Rows After NaN Removal:</strong> {{ debug_info.rows_after_nan_removal }}</p>
+                {% endif %}
+                
+                {% if debug_info.trades_found != None %}
+                <p><strong>Trades Found:</strong> {{ debug_info.trades_found }}</p>
+                {% endif %}
+                
+                {% if debug_info.no_trades %}
+                <p><strong>Note:</strong> {{ debug_info.no_trades }}</p>
+                {% endif %}
+                
+                {% if debug_info.exception %}
+                <h4>Exception:</h4>
+                <pre>{{ debug_info.exception }}</pre>
+                <h4>Traceback:</h4>
+                <pre>{{ debug_info.traceback }}</pre>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <script>
+        // Collapsible sections for debug info
+        var coll = document.getElementsByClassName("collapsible");
+        for (var i = 0; i < coll.length; i++) {
+            coll[i].addEventListener("click", function() {
+                this.classList.toggle("active");
+                var content = this.nextElementSibling;
+                if (content.style.display === "block") {
+                    content.style.display = "none";
+                } else {
+                    content.style.display = "block";
+                }
+            });
+        }
+    </script>
+</body>
+</html>

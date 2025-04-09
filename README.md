@@ -1,5 +1,6 @@
 # Trading System - Real-time Stock Data & Analysis Platform
-
+## Video Explanation 
+https://drive.google.com/file/d/1I5DEs_9H90sV0GnwdVqSiKOuEUuCh8CV/view?usp=sharing
 ## Project Overview
 
 This project implements a comprehensive trading system that processes real-time stock data, manages trades through a REST API, integrates with AWS cloud services for data analysis, and includes algorithmic trading simulation capabilities. The system is built using Django and follows modern software development practices to create a scalable and reliable platform for financial technology applications.
@@ -18,8 +19,9 @@ This project implements a comprehensive trading system that processes real-time 
 4. [Component 1: REST API](#component-1-rest-api)
 5. [Component 2: WebSocket Real-time Data](#component-2-websocket-real-time-data)
 6. [Component 3: AWS Integration](#component-3-aws-integration)
-7. [Testing](#testing)
-8. [Development Decisions](#development-decisions)
+7. [Component 4: Algo Trading(MA Stretegy)](#component-4-algo-trading-(MA-Stretegy))
+8. [Testing](#testing)
+9. [Development Decisions](#development-decisions)
 
 ## Prerequisites
 
@@ -68,7 +70,7 @@ DATABASES = {
 ```
 
 ### Configure AWS Credentials
-In `~/.aws/credentials` or environment variables:
+In `awscli` or environment variables:
 ```
 [default]
 aws_access_key_id = YOUR_ACCESS_KEY
@@ -127,6 +129,9 @@ trading-simulation-system/
 │   ├── routing.py
 │   └── templates/monitor.html
 └── algo_trading/
+    ├── urls.py
+    ├── views.py
+    ├── templates/alo_trading/upload.html
 ```
 
 ## Component 1: REST API
@@ -141,8 +146,7 @@ trading-simulation-system/
 | GET | `/api/trades/` | List trades (filter by `ticker`, `start_date`, `end_date`) |
 | POST | `/api/trades/` | Create new trade |
 | GET | `/api/trades/<id>/` | Retrieve trade by ID |
-| PUT/PATCH | `/api/trades/<id>/` | Update trade |
-| DELETE | `/api/trades/<id>/` | Delete trade |
+| GET | `/api/trades/?ticker=<ticker>&start_date=<date>&end_date=<date>` | Retrieve trade by ticker & dates |
 
 ### Example - Create Trade
 ```json
@@ -161,9 +165,8 @@ trading-simulation-system/
 
 ### Running
 ```bash
-daphne tradingSim_project.asgi:application
+http://localhost:8000/web/monitor
 ```
-Visit `http://localhost:8000/web/monitor/`
 
 ### Features
 - Connect to live stock data using Yahoo Finance
@@ -185,8 +188,8 @@ python manage.py export_trades
 - Exports DB trades to `YEAR/MONTH/DAY/trades.csv` in S3
 
 ### Analyze Trade Data (Lambda)
-```
-GET /api/trade-analysis/?date=2025-01-20
+```bash
+http://localhost:8000/api/trade-analysis/?date=2025-01-20
 ```
 Triggers Lambda → Analyzes CSV in S3 → Saves result → Returns status
 
@@ -197,7 +200,33 @@ Triggers Lambda → Analyzes CSV in S3 → Saves result → Returns status
   "message": "Analysis saved for 2025-01-20"
 }
 ```
+## Component 4: Algo Trading(MA Stretegy)
+### Export Trades to S3
+```bash
+python stock_price_generator.py
+```
+- Creates a file in the format: `Date,Open,High,Low,Close,Volume` 
+### Upload CSV via Web UI
+```bash
+http://localhost:8000/algo_trading/
+```
+- Opens the index.html template where you can upload the generated CSV.
+- Backend runs 50/200 MA crossover strategy on the uploaded file.
+### Download Trade Analysis
+- After upload, use the Download button in the UI
+    or directly visit:
+```bash
+http://localhost:8000/algo_trading/download/
+```
+- Returns a CSV with Buy/Sell signals, P&L, and total summary.
 
+### Expected Output Format
+```
+Date, Signal, Price, Profit/Loss
+2025-01-02, Buy, 104.5,
+2025-01-10, Sell, 110.3, 5.8
+
+ ```
 ## Testing
 
 ### REST API
